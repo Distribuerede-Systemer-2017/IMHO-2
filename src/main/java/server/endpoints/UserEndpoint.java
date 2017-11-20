@@ -24,13 +24,16 @@ public class UserEndpoint {
     @Path("/login")
     //Endpoint for authorizing a user
     public Response logIn(String user) {
-        User authorizedUser = mainController.authUser(new Gson().fromJson(user, User.class));
-        String myUser = new Gson().toJson(authorizedUser);
-        myUser = crypter.encryptAndDecryptXor(myUser);
+        user = new Gson().fromJson(user, String.class);
+        String decryptedUser = crypter.decrypt(user);
 
-        if (authorizedUser != null) {
+        String authorizedToken = mainController.authUser(new Gson().fromJson(decryptedUser, User.class));
+        String myToken = new Gson().toJson(authorizedToken);
+        System.out.println(myToken);
+
+        if (myToken != null) {
             Globals.log.writeLog(this.getClass().getName(), this, "User authorized", 2);
-            return Response.status(200).type("application/json").entity(new Gson().toJson(myUser)).build();
+            return Response.status(200).type("application/json").entity(crypter.encrypt(myToken)).build();
         } else {
             Globals.log.writeLog(this.getClass().getName(), this, "User not authorized", 2);
             return Response.status(401).type("text/plain").entity("Error signing in - unauthorized").build();
@@ -41,13 +44,15 @@ public class UserEndpoint {
     @Path("/signup")
     //Creating a new user
     public Response signUp(String user) {
-        User createdUser = mainController.createUser(new Gson().fromJson(user, User.class));
+        user = new Gson().fromJson(user, String.class);
+        String decryptedUser = crypter.decrypt(user);
+
+        User createdUser = mainController.createUser(new Gson().fromJson(decryptedUser, User.class));
         String newUser = new Gson().toJson(createdUser);
-        newUser = crypter.encryptAndDecryptXor(newUser);
 
         if (createdUser != null) {
             Globals.log.writeLog(this.getClass().getName(), this, "User created", 2);
-            return Response.status(200).type("application/json").entity(new Gson().toJson(newUser)).build();
+            return Response.status(200).type("application/json").entity(crypter.encrypt(newUser)).build();
         } else {
             Globals.log.writeLog(this.getClass().getName(), this, "Failed creating user", 2);
             return Response.status(400).type("text/plain").entity("Error creating user").build();
@@ -59,13 +64,14 @@ public class UserEndpoint {
     @GET
     //Getting own profile by token
     public Response getMyUser(@HeaderParam("authorization") String token) throws SQLException {
+        token = new Gson().fromJson(token, String.class);
+
         CurrentUserContext currentUser = tokenController.getUserFromTokens(token);
-        String myUser = new Gson().toJson(currentUser.getCurrentUser());
-        myUser = crypter.encryptAndDecryptXor(myUser);
+        String myUser = new Gson().toJson(currentUser);
 
         if (currentUser.getCurrentUser() != null) {
             Globals.log.writeLog(this.getClass().getName(), this, "My user loaded", 2);
-            return Response.status(200).type("application/json").entity(new Gson().toJson(myUser)).build();
+            return Response.status(200).type("application/json").entity(crypter.encrypt(myUser)).build();
         } else {
             Globals.log.writeLog(this.getClass().getName(), this, "Unauthorized - my user", 2);
             return Response.status(400).type("text/plain").entity("Error loading user").build();
@@ -74,9 +80,12 @@ public class UserEndpoint {
 
     @POST
     @Path("/logout")
-    public Response logOut(String userId) throws SQLException {
-        int myUserId = new Gson().fromJson(userId, Integer.class);
-        Boolean deletedToken = tokenController.deleteToken(myUserId);
+    public Response logOut(String userId) throws  SQLException {
+        String myUserId = new Gson().fromJson(userId, String.class);
+        String decryptedId = crypter.decrypt(myUserId);
+        System.out.println(decryptedId);
+
+        Boolean deletedToken = tokenController.deleteToken(new Gson().fromJson(decryptedId, Integer.class));
 
         if (deletedToken == true) {
             Globals.log.writeLog(this.getClass().getName(), this, "User log out", 2);
